@@ -4,7 +4,7 @@
 
 WD=$(pwd)
 OUT=${ANDROID_PRODUCT_OUT}
-UPDATE="/home/jon/update/"
+UPDATE=${UPDATE:="/home/jon/update/"}
 
 echo WD=${WD}
 echo OUT=${OUT}
@@ -67,9 +67,49 @@ diff_update(){
     cd ${UPDATE}
     UPDATE_SYSTEM="$(find {system,data,META-INF/com} | sort)"
 
-    diff <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "[>|]" | awk -F "[>|]" '{print $2}' | sed 's/^[[:space:]]*//'
+    diff <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "^>" | awk -F ">" '{print $2}' | sed 's/^[[:space:]]*//'
 }
+diff_update2(){
+    cd ${OUT}
+    OUT_SYSTEM="$(find {system,data,META-INF/com} | sort)"
 
+    cd ${UPDATE}
+    UPDATE_SYSTEM="$(find {system,data,META-INF/com} | sort)"
+
+    diff <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "^<" | awk -F "<" '{print $2}' | sed 's/^[[:space:]]*//'
+}
+diff_update_size(){
+    cd ${OUT}/system
+    OUT_SYSTEM="$(find . -printf "%P %s\n" | sort -u | column -t)"
+
+    cd ${UPDATE}/system
+    UPDATE_SYSTEM="$(find . -printf "%P %s\n" | sort -u | column -t)"
+
+    diff -y <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "app" | grep "|" | awk -F "|" '{print $2}' | awk '$1 ~ "^[[:space:]]*$" {next} {print $1}'
+}
+merge_smaller_files(){
+    MERGE_FILES="$(diff_update_size)"
+    cd ${UPDATE}
+    for i in ${MERGE_FILES}; do
+        i=system/$i
+        ERROR=$(acp -ftpdv "$i" "${OUT}/$i" 2>&1)
+        case "${ERROR}" in
+            *omitting*)
+                echo "Making '$i'"
+                mkdir -p "${OUT}/$i"
+                ;;
+            *--*)
+                ;;
+            *)
+                echo "Unknown error: ${ERROR}"
+                ;;
+        esac
+    done
+}
+prune(){
+    cd ${OUT}
+    diff_update2 | xargs rm
+}
 case "$1" in
     clean)
         clean
@@ -83,6 +123,15 @@ case "$1" in
         UPDATE_SYSTEM="$(find {system,data,META-INF/com} | sort)"
 
         diff <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "^>" | awk -F ">" '{print $2}' | sed 's/^[[:space:]]*//'
+        ;;
+    sizediff)
+        diff_update_size
+        ;;
+    prune)
+        prune
+        ;;
+    merge)
+        merge_smaller_files
         ;;
     rebuild)
         rebuild
