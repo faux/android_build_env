@@ -1,0 +1,8 @@
+#!/bin/bash
+if [ -f "$1" ]; then
+    GITHUB_PROFILE=$(cat "$1")
+else
+    GITHUB_PROFILE=$(curl -sS --compressed http://github.com/cyanogen/)
+fi
+echo "$GITHUB_PROFILE" | grep '/cyanogen/' | grep 'class="title"' | awk -F '"' '{print $4}' | awk -F "/" '{print $3}' | sort -u
+

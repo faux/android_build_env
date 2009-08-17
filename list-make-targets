@@ -1,0 +1,1 @@
+find . -name "*.mk" | xargs cat | grep "LOCAL_MODULE := " | grep -v "^[[:space:]]*#" | awk 'BEGIN { FS=":=" } {print $2}' | sort -u | less

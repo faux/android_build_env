@@ -1,0 +1,11 @@
+#!/bin/bash
+case "$1" in
+    clean)
+        echo "cleaning userdata"
+        sleep 1
+        emulator -netfast -show-kernel -noskin -no-boot-anim -wipe-data
+        ;;
+    *)
+        emulator -netfast -show-kernel -no-boot-anim $*
+        ;;
+esac

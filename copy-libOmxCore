@@ -1,0 +1,3 @@
+#!/bin/bash
+mkdir -p out/target/product/dream-open/obj/lib/
+cp vendor/htc/dream-open/proprietary/libOmxCore.so out/target/product/dream-open/obj/lib/

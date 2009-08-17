@@ -1,0 +1,2 @@
+#!/bin/bash
+repo forall -c 'echo ${REPO_PROJECT} | sed "s/platform/android/" | sed "s/[[:punct:]]/_/g" | xargs -I{} echo git://github.com/cyanogen/{}.git | xargs -I{} git remote add cyanogen {}'

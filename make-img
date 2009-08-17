@@ -1,0 +1,1 @@
+find $1 | cpio -o | gzip > $2.img

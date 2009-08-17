@@ -1,0 +1,22 @@
+#!/bin/bash
+
+clean_bins(){
+find . -type l -print0 | xargs -0 rm
+}
+
+link_bins(){
+find ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin -type f -print0 | xargs -0 -L 1 ln -s
+find ${ANDROID_BUILD_TOP}/build/tools -type f -name "*.py" -print0 | xargs -0 -L 1 ln -s
+find ${ANDROID_BUILD_TOP}/build/tools -type f -name "*.sh" -print0 | xargs -0 -L 1 ln -s
+}
+
+cd ~/bin
+case "$1" in
+	clean)
+		clean_bins
+		;;
+	*)
+		clean_bins
+		link_bins
+		;;
+esac

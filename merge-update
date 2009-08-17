@@ -1,0 +1,130 @@
+#!/bin/bash
+
+
+
+WD=$(pwd)
+OUT=${ANDROID_PRODUCT_OUT}
+UPDATE="/home/jon/update/"
+
+echo WD=${WD}
+echo OUT=${OUT}
+echo UPDATE=${UPDATE}
+echo -----------------------
+
+clean(){
+    cd ${OUT}
+    cat merged_files | xargs rm -r
+    rm merged_files
+}
+rebuild(){
+    cd ${OUT}
+    find . -name "system.img" -print0 | xargs -0 rm 2> /dev/null
+    echo "system.img can now be rebuilt"
+}
+backup_folder(){
+    echo "backing up $1"
+    mkdir -p ${OUT}/squash_backup/
+    rm -r "${OUT}/squash_backup/$1"
+    cp -r $1 ${OUT}/squash_backup/
+}
+squash_folder(){
+    if [ -d "$1" ]
+    then
+        backup_folder $1
+        echo "squashing $1"
+        mksquashfs $1 $1.sqf -noappend
+        rm -r $1/
+        mkdir $1/
+        mv $1.sqf $1/
+    else
+        echo "can't squash $1"
+    fi
+}
+unsquash_folder(){
+    rm -r $1
+    cp -r "${OUT}/squash_backup/$1" .
+}
+squash(){
+    WD=$(pwd)
+    cd ${OUT}/system
+    squash_folder xbin
+    squash_folder modules
+    cd ${WD}
+}
+unsquash(){
+    WD=$(pwd)
+    cd ${OUT}/system
+    unsquash_folder xbin
+    unsquash_folder modules
+    cd ${OUT}
+    rm -r squash_backup
+    cd ${WD}
+}
+diff_update(){
+    cd ${OUT}
+    OUT_SYSTEM="$(find {system,data,META-INF/com} | sort)"
+
+    cd ${UPDATE}
+    UPDATE_SYSTEM="$(find {system,data,META-INF/com} | sort)"
+
+    diff <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "[>|]" | awk -F "[>|]" '{print $2}' | sed 's/^[[:space:]]*//'
+}
+
+case "$1" in
+    clean)
+        clean
+        rebuild
+        ;;
+    debug)
+        cd ${OUT}
+        OUT_SYSTEM="$(find {system,data,META-INF/com} | sort)"
+
+        cd ${UPDATE}
+        UPDATE_SYSTEM="$(find {system,data,META-INF/com} | sort)"
+
+        diff <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "^>" | awk -F ">" '{print $2}' | sed 's/^[[:space:]]*//'
+        ;;
+    rebuild)
+        rebuild
+        ;;
+    cleansquash)
+        cleansquash
+        ;;
+    unsquash)
+        unsquash
+        ;;
+    squash)
+        squash
+        ;;
+    system)
+        cd ${OUT}
+        echo "making system.img"
+        mkyaffs2image -f `pwd`/system system.img
+        echo "making userdata.img"
+        mkyaffs2image -f `pwd`/data userdata.img
+        ;;
+    *)
+        cd ${OUT}
+        if [ -f "merged_files" ]; then
+            echo "Looks like an update was already merged. Run '$0 clean' to clean the merge"
+            exit 1
+        fi
+        diff_update > ${OUT}/merged_files
+        cd ${UPDATE}
+        for i in $(cat ${OUT}/merged_files); do
+            ERROR=$(acp -ftpdv "$i" "${OUT}/$i" 2>&1)
+            case "${ERROR}" in
+                *omitting*)
+                    echo "Making '$i'"
+                    mkdir -p "${OUT}/$i"
+                    ;;
+                *--*)
+                    ;;
+                *)
+                    echo "Unknown error: ${ERROR}"
+                    ;;
+            esac
+        done
+        rebuild
+        ;;
+esac
