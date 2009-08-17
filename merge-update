@@ -16,6 +16,13 @@ clean(){
     cat merged_files | xargs rm -r
     rm merged_files
 }
+wipe(){
+    cd ${OUT}
+    rm -r data/ META-INF/ recovery/ root/ squash_backup/ system/
+    rm *.img
+    clean
+    rebuild
+}
 rebuild(){
     cd ${OUT}
     find . -name "system.img" -print0 | xargs -0 rm 2> /dev/null
@@ -41,6 +48,7 @@ squash_folder(){
     fi
 }
 unsquash_folder(){
+    cd ${OUT}/system
     rm -r $1
     cp -r "${OUT}/squash_backup/$1" .
 }
@@ -52,13 +60,10 @@ squash(){
     cd ${WD}
 }
 unsquash(){
-    WD=$(pwd)
-    cd ${OUT}/system
+    cd ${OUT}
     unsquash_folder xbin
     unsquash_folder modules
-    cd ${OUT}
-    rm -r squash_backup
-    cd ${WD}
+#    rm -r squash_backup
 }
 diff_update(){
     cd ${OUT}
@@ -71,21 +76,21 @@ diff_update(){
 }
 diff_update2(){
     cd ${OUT}
-    OUT_SYSTEM="$(find {system,data,META-INF/com} | sort)"
+    OUT_SYSTEM="$(find {system,data,META-INF/com} -type f | sort)"
 
     cd ${UPDATE}
-    UPDATE_SYSTEM="$(find {system,data,META-INF/com} | sort)"
+    UPDATE_SYSTEM="$(find {system,data,META-INF/com} -type f | sort)"
 
     diff <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "^<" | awk -F "<" '{print $2}' | sed 's/^[[:space:]]*//'
 }
 diff_update_size(){
     cd ${OUT}/system
-    OUT_SYSTEM="$(find . -printf "%P %s\n" | sort -u | column -t)"
+    OUT_SYSTEM="$(find . -type f -printf '%P %s\n' | grep ".apk" | sort -u | egrep -v "^(xbin|modules|framework)" | column -t)"
 
     cd ${UPDATE}/system
-    UPDATE_SYSTEM="$(find . -printf "%P %s\n" | sort -u | column -t)"
+    UPDATE_SYSTEM="$(find . -type f -printf '%P %s\n' | grep ".apk" | sort -u | egrep -v "^(xbin|modules|framework)" | column -t)"
 
-    diff -y <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | grep "app" | grep "|" | awk -F "|" '{print $2}' | awk '$1 ~ "^[[:space:]]*$" {next} {print $1}'
+    diff -U 1 <(echo "${OUT_SYSTEM}") <(echo "${UPDATE_SYSTEM}") | egrep "^(\+|-)" | tail -n +3 | egrep "^\+" | awk -F "[+[:space:]]" '{print $2}'
 }
 merge_smaller_files(){
     MERGE_FILES="$(diff_update_size)"
@@ -99,6 +104,7 @@ merge_smaller_files(){
                 mkdir -p "${OUT}/$i"
                 ;;
             *--*)
+                echo "${ERROR}"
                 ;;
             *)
                 echo "Unknown error: ${ERROR}"
@@ -112,8 +118,13 @@ prune(){
 }
 case "$1" in
     clean)
-        clean
-        rebuild
+        if [ "$2" == "all" ]
+        then
+            wipe
+        else
+            clean
+            rebuild
+        fi
         ;;
     debug)
         cd ${OUT}
@@ -158,7 +169,8 @@ case "$1" in
             echo "Looks like an update was already merged. Run '$0 clean' to clean the merge"
             exit 1
         fi
-        diff_update > ${OUT}/merged_files
+        #do not include quashed files
+        diff_update | awk '$0 ~ "^.*[.]sqf$" {next} {print}' > ${OUT}/merged_files
         cd ${UPDATE}
         for i in $(cat ${OUT}/merged_files); do
             ERROR=$(acp -ftpdv "$i" "${OUT}/$i" 2>&1)
