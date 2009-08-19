@@ -1,3 +1,4 @@
 #!/bin/bash
-mkdir -p out/target/product/dream-open/obj/lib/
-cp vendor/htc/dream-open/proprietary/libOmxCore.so out/target/product/dream-open/obj/lib/
+cd 
+mkdir -p ${ANDROID_PRODUCT_OUT}/obj/lib/
+cp ${ANDROID_BUILD_TOP}/vendor/htc/dream-open/proprietary/libOmxCore.so ${ANDROID_PRODUCT_OUT}/obj/lib/
